@@ -45,6 +45,7 @@ export default function ProductForm({
   const [images, setImages] = useState<ImageItem[]>(
     existingImages.map((image, index) => ({ id: index.toString(), src: image }))
   );
+  const [removedImages, setRemovedImages] = useState<ImageItem[]>([]); // Silinmek üzere işaretlenen görseller
   const [goToProducts, setGoToProducts] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -70,6 +71,11 @@ export default function ProductForm({
     };
     if (_id) {
       await axios.put("/api/products", { ...data, _id });
+
+      // Silinmek üzere işaretlenen görselleri AWS S3 ve MongoDB'den sil
+      for (const img of removedImages) {
+        await axios.delete("/api/delete", { data: { imageUrl: img.src } });
+      }
     } else {
       await axios.post("/api/products", data);
     }
@@ -109,6 +115,12 @@ export default function ProductForm({
 
   function updateImagesOrder(newImages: ImageItem[]) {
     setImages(newImages);
+  }
+
+  // Görseli sadece ön yüzden kaldırıyoruz, silme işlemi 'Save' ile yapılacak
+  function removeImageTemporarily(imageId: string, imageUrl: string) {
+    setRemovedImages((prev) => [...prev, { id: imageId, src: imageUrl }]); // Silmek üzere işaretle
+    setImages((oldImages) => oldImages.filter((img) => img.id !== imageId)); // Ön yüzden kaldır
   }
 
   function setProductProp(propName: string, value: string) {
@@ -180,7 +192,7 @@ export default function ProductForm({
             images.map((img) => (
               <div
                 key={img.id}
-                className="h-24 bg-white p-4 shadow-sm rounded-sm border border-gray-200"
+                className="relative h-24 bg-white p-4 shadow-sm rounded-sm border border-gray-200 group"
               >
                 <Image
                   src={img.src}
@@ -189,6 +201,12 @@ export default function ProductForm({
                   width={96}
                   height={96}
                 />
+                <button
+                  className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => removeImageTemporarily(img.id, img.src)} // Görseli sadece ön yüzden kaldır
+                >
+                  ✕
+                </button>
               </div>
             ))}
         </ReactSortable>
